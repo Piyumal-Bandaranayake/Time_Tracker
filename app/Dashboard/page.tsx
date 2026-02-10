@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import StatCard from "@/components/StatCard";
+import TaskCard from "@/components/TaskCard";
+import Link from "next/link";
 
 
 
@@ -12,23 +14,46 @@ export default function DashboardPage() {
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const [summary, weekly] = await Promise.all([
-          api("/api/dashboard/summary"),
-          api("/api/dashboard/weekly")
-        ]);
-        setData(summary);
-        setWeeklyData(weekly);
-      } catch (err) {
-        console.error("Failed to fetch dashboard stats:", err);
-      } finally {
-        setIsLoading(false);
-      }
+  async function fetchStats() {
+    try {
+      const [summary, weekly] = await Promise.all([
+        api("/api/dashboard/summary"),
+        api("/api/dashboard/weekly")
+      ]);
+      setData(summary);
+      setWeeklyData(weekly);
+    } catch (err) {
+      console.error("Failed to fetch dashboard stats:", err);
+    } finally {
+      setIsLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchStats();
   }, []);
+
+  async function toggleComplete(task: any) {
+    try {
+      await api(`/api/tasks/${task.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ completed: !task.completed }),
+      });
+      fetchStats();
+    } catch (err) {
+      console.error("Failed to toggle task:", err);
+    }
+  }
+
+  async function deleteTask(id: string) {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+    try {
+      await api(`/api/tasks/${id}`, { method: "DELETE" });
+      fetchStats();
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -49,11 +74,17 @@ export default function DashboardPage() {
     );
   }
 
+  const formatTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+  };
+
   const stats = [
     { label: "Total Tasks", value: data.totalTasks, icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2", color: "text-blue-400" },
     { label: "Completed", value: data.completedTasks, icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z", color: "text-green-400" },
-    { label: "Total Time", value: `${Math.floor(data.totalTimeSeconds / 60)} min`, icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", color: "text-purple-400" },
-    { label: "Today", value: `${Math.floor(data.todayTimeSeconds / 60)} min`, icon: "M13 10V3L4 14h7v7l9-11h-7z", color: "text-orange-400" }
+    { label: "Today", value: formatTime(data.todayTimeSeconds), icon: "M13 10V3L4 14h7v7l9-11h-7z", color: "text-orange-400" },
+    { label: "This Week", value: formatTime(data.weekTimeSeconds), icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", color: "text-purple-400" }
   ];
 
   const productivityScore = data.totalTasks > 0 
@@ -63,24 +94,22 @@ export default function DashboardPage() {
   const maxWeeklySeconds = Math.max(...weeklyData.map(d => d.seconds), 1);
 
   return (
-    <div className="min-h-screen p-6 md:p-10 pt-44 relative overflow-hidden bg-[#0f172a]">
+    <div className="min-h-screen p-6 md:p-10 pt-32 relative overflow-hidden bg-[#0f172a]">
       <Navbar />
       {/* Background Decor */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[120px]" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-secondary/5 rounded-full blur-[120px]" />
 
       <div className="relative z-10 max-w-7xl mx-auto">
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+          
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => window.location.reload()}
-              className="glass px-6 py-3 rounded-2xl text-sm font-semibold hover:bg-white/10 transition-all border border-white/5 active:scale-95 flex items-center gap-2 group"
-            >
-              <svg className="w-4 h-4 text-primary group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <Link href="/tasks" className="btn-primary px-6 h-12 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Refresh Data
-            </button>
+              New Task
+            </Link>
           </div>
         </header>
 
@@ -102,14 +131,13 @@ export default function DashboardPage() {
         </div>
 
         {/* Content Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
           <div className="lg:col-span-2 glass p-8 rounded-4xl min-h-[400px] flex flex-col border border-white/5 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary/10 transition-colors"></div>
             <h2 className="text-xl font-bold mb-8 flex items-center gap-3">
               <span className="w-1.5 h-6 bg-primary rounded-full"></span>
-              Recent Activity
+              Weekly Activity
             </h2>
-
             
             <div className="flex-1 flex items-end justify-between gap-2 sm:gap-4 px-2 pb-4">
               {weeklyData.map((d, i) => (
@@ -159,9 +187,45 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Recent Tasks List */}
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-8 px-2">
+            <h2 className="text-2xl font-bold flex items-center gap-3">
+              <span className="w-2 h-8 bg-secondary rounded-full"></span>
+              Recent Tasks
+            </h2>
+            <Link href="/tasks" className="text-sm font-bold text-primary hover:underline flex items-center gap-1">
+              View All Tasks
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+
+          <div className="space-y-4">
+            {data.recentTasks && data.recentTasks.length > 0 ? (
+              data.recentTasks.map((t: any) => (
+                <TaskCard 
+                  key={t.id} 
+                  task={t} 
+                  refresh={fetchStats} 
+                  onEdit={() => {}} // Could implement modal here too but keeping it simple
+                  onDelete={deleteTask}
+                  onToggle={toggleComplete}
+                />
+              ))
+            ) : (
+              <div className="glass p-12 rounded-3xl text-center text-gray-500 border border-white/5">
+                <p>No tasks found. Start by creating one!</p>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );
 }
+
 
 
