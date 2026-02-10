@@ -1,8 +1,8 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { prisma } from "../../../lib/prisma";
-import { getUserIdFromToken } from "../../../lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getUserIdFromToken } from "@/lib/auth";
 
 // CREATE TASK
 export async function POST(req: Request) {

@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-export function getUserIdFromToken(req: Request) {
+export function getUserIdFromToken(req: Request): string | null {
   const authHeader = req.headers.get("authorization");
 
   if (!authHeader) return null;
