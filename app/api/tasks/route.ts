@@ -29,7 +29,23 @@ export async function GET(req: Request) {
 
   const tasks = await prisma.task.findMany({
     where: { userId },
+    include: {
+      timeEntries: {
+        where: { NOT: { duration: null } },
+        select: { duration: true }
+      }
+    }
   });
 
-  return NextResponse.json(tasks);
+  const tasksWithTime = tasks.map(task => {
+    const totalTime = task.timeEntries.reduce((sum, entry) => sum + (entry.duration || 0), 0);
+    return {
+      ...task,
+      totalTime,
+      timeEntries: undefined // Remove from response to keep it clean
+    };
+  });
+
+  return NextResponse.json(tasksWithTime);
 }
+
