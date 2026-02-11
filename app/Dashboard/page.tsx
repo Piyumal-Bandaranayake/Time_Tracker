@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import Navbar from "@/components/Navbar";
 import StatCard from "@/components/StatCard";
 import TaskCard from "@/components/TaskCard";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 
 
@@ -13,6 +13,8 @@ export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
 
   async function fetchStats() {
     try {
@@ -55,6 +57,32 @@ export default function DashboardPage() {
     }
   }
 
+  async function exportCsv() {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/export", {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+      
+      if (!res.ok) throw new Error("Export failed");
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `tasks-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Failed to export CSV:", err);
+      alert("Failed to export data. Please try again.");
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
@@ -94,8 +122,7 @@ export default function DashboardPage() {
   const maxWeeklySeconds = Math.max(...weeklyData.map(d => d.seconds), 1);
 
   return (
-    <div className="min-h-screen p-6 md:p-10 pt-32 relative overflow-hidden bg-[#0f172a]">
-      <Navbar />
+    <div className="min-h-screen p-6 md:p-10 pt-16 relative overflow-hidden bg-[#0f172a]">
       {/* Background Decor */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[120px]" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-secondary/5 rounded-full blur-[120px]" />
@@ -104,12 +131,39 @@ export default function DashboardPage() {
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           
           <div className="flex items-center gap-4">
+            <button 
+              onClick={exportCsv}
+              className="glass px-6 py-3 h-12 rounded-2xl text-sm font-semibold hover:bg-white/10 transition-all border border-white/5 active:scale-95 flex items-center gap-2 group text-gray-300 hover:text-white"
+            >
+              <svg className="w-5 h-5 text-gray-400 group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export CSV
+            </button>
+            <Link href="/tasks" className="glass px-6 py-3 h-12 rounded-2xl text-sm font-semibold hover:bg-white/10 transition-all border border-white/5 active:scale-95 flex items-center gap-2 group text-gray-300 hover:text-white">
+              <svg className="w-5 h-5 text-gray-400 group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              Task Manager
+            </Link>
             <Link href="/tasks" className="btn-primary px-6 h-12 flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              New Task
+              Create Task
             </Link>
+            <button 
+              onClick={() => {
+                localStorage.removeItem("token");
+                router.push("/login");
+              }}
+              className="px-6 py-3 h-12 rounded-2xl text-sm font-semibold bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-all border border-red-500/20 active:scale-95 flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Logout
+            </button>
           </div>
         </header>
 
@@ -190,31 +244,42 @@ export default function DashboardPage() {
 
         {/* Recent Tasks List */}
         <section className="mb-12">
-          <div className="flex items-center justify-between mb-8 px-2">
+          <div className="flex flex-col sm:flex-row items-center justify-between mb-8 px-2 gap-4">
             <h2 className="text-2xl font-bold flex items-center gap-3">
               <span className="w-2 h-8 bg-secondary rounded-full"></span>
               Recent Tasks
             </h2>
-            <Link href="/tasks" className="text-sm font-bold text-primary hover:underline flex items-center gap-1">
-              View All Tasks
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <div className="relative w-full sm:w-64">
+              <input 
+                type="text" 
+                placeholder="Search tasks..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm pl-10 transition-all font-medium text-white placeholder-gray-500"
+              />
+              <svg className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-            </Link>
+            </div>
           </div>
 
           <div className="space-y-4">
             {data.recentTasks && data.recentTasks.length > 0 ? (
-              data.recentTasks.map((t: any) => (
-                <TaskCard 
-                  key={t.id} 
-                  task={t} 
-                  refresh={fetchStats} 
-                  onEdit={() => {}} // Could implement modal here too but keeping it simple
-                  onDelete={deleteTask}
-                  onToggle={toggleComplete}
-                />
-              ))
+              data.recentTasks
+                .filter((t: any) => 
+                  t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()))
+                )
+                .map((t: any) => (
+                  <TaskCard 
+                    key={t.id} 
+                    task={t} 
+                    refresh={fetchStats} 
+                    onEdit={() => {}} 
+                    onDelete={deleteTask}
+                    onToggle={toggleComplete}
+                  />
+                ))
             ) : (
               <div className="glass p-12 rounded-3xl text-center text-gray-500 border border-white/5">
                 <p>No tasks found. Start by creating one!</p>
